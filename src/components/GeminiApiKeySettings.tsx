@@ -51,7 +51,7 @@ const GeminiApiKeySettings: React.FC<GeminiApiKeySettingsProps> = ({ isOpen, onC
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Key className="w-5 h-5 text-blue-600" /> Gemini API Key Settings
+            <Key className="w-5 h-5 text-indigo-600" /> Gemini API Key Settings
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
