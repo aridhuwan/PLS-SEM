@@ -8,16 +8,22 @@ import {
   Table as TableIcon, 
   BarChart2, 
   Image as ImageIcon, ChevronDown,
-  Cpu, Layers, Zap, Filter
+  Cpu, Layers, Zap, Filter, Key
 } from 'lucide-react';
+import { toast as sonnerToast } from "sonner"; // Renamed to avoid conflict with shadcn/ui toast
+import GeminiApiKeySettings from '@/components/GeminiApiKeySettings'; // Import the new component
 
 /**
  * GEMINI API UTILITIES
  */
+const GEMINI_API_KEY_STORAGE_KEY = "geminiApiKey"; // Define the storage key
+
 const callGemini = async (prompt: string, systemInstruction: string = "") => {
-  const apiKey = ""; // Runtime provided
+  const apiKey = localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY); // Retrieve from local storage
   if (!apiKey) {
-      console.warn("API Key not found (expected in runtime environment)");
+      sonnerToast.error("Gemini API Key is missing. Please add it in the AI Settings.");
+      console.warn("Gemini API Key not found (expected in local storage).");
+      return "Gemini API Key is missing. Please add it in the AI Settings.";
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -84,7 +90,7 @@ const createSeededRandom = (seed: string) => {
         k = seed.charCodeAt(i);
         h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
         h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
-        h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+        h3 = h4 ^ Math.imul(h4 ^ k, 951274213);
         h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
     }
     return sfc32(h1, h2, h3, h4);
@@ -1410,7 +1416,7 @@ const ModelBuilder: React.FC<ModelBuilderProps> = ({ constructs, setConstructs, 
   };
 
   const handleAskGemini = async () => {
-    if(constructs.length === 0) { alert("Please add some constructs first."); return; }
+    if(constructs.length === 0) { sonnerToast.error("Please add some constructs first."); return; }
     setIsAskingAi(true); setAiAdvice(null);
     const constructNames = constructs.map(c => c.name).join(", ");
     const prompt = `I am building a Structural Equation Model (SEM). I have these latent constructs defined: [${constructNames}]. Based on standard academic research theories (like TAM, TPB), suggest hypotheses. OUTPUT HTML format with Tailwind classes. Structure: Heading, List, Paragraphs.`;
@@ -1437,7 +1443,7 @@ const ModelBuilder: React.FC<ModelBuilderProps> = ({ constructs, setConstructs, 
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
-      try { const json = JSON.parse(event.target?.result as string); if (json.constructs && json.paths) { setConstructs(json.constructs); setPaths(json.paths); alert("Loaded!"); } else alert("Invalid file"); } catch (err) { console.error(err); alert("Failed to parse"); }
+      try { const json = JSON.parse(event.target?.result as string); if (json.constructs && json.paths) { setConstructs(json.constructs); setPaths(json.paths); sonnerToast.success("Model loaded successfully!"); } else sonnerToast.error("Invalid model file format."); } catch (err) { console.error(err); sonnerToast.error("Failed to parse model file."); }
     };
     reader.readAsText(file); e.target.value = '';
   };
@@ -2176,18 +2182,25 @@ const PLSSEMApp = () => {
   const [selectedCalculationType, setSelectedCalculationType] = useState<string>('pls');
   const [descriptiveResults, setDescriptiveResults] = useState<DemographicResult[] | null>(null);
   const [bootstrapConfig, setBootstrapConfig] = useState<PLSConfig>({ type: 'pls', subsamples: 500, testType: 'two-tailed', significanceLevel: 0.05, weightingScheme: 'path', maxIterations: 300, stopCriterion: 7 });
+  const [showGeminiApiKeySettings, setShowGeminiApiKeySettings] = useState(false); // New state for API key settings
 
   const handleDataLoaded = (parsedData: Record<string, any>[]) => { setData(parsedData); if (parsedData.length > 0) setVariables(Object.keys(parsedData[0])); };
-  const handleInitiateAnalysis = () => { if (constructs.length===0 || data.length===0) { alert("Missing data or model"); return; } setShowCalculationTypeModal(true); };
+  const handleInitiateAnalysis = () => { if (constructs.length===0 || data.length===0) { sonnerToast.error("Missing data or model. Please upload data and build your model first."); return; } setShowCalculationTypeModal(true); };
   const handleRunAnalysis = (config: PLSConfig) => {
     setShowSettingsModal(false); setIsCalculating(true); setBootstrapConfig(config);
     setTimeout(() => {
       try { const res = runPLSAlgorithm(data, constructs, paths, config); setResults(res); setActiveView('results'); } 
-      catch (err) { console.error(err); alert("Error calculating."); }
+      catch (err) { console.error(err); sonnerToast.error("Error calculating PLS-SEM. Check your model and data."); }
       setIsCalculating(false);
     }, 100);
   };
-  const handleRunDescriptive = (vars: string[]) => { setTimeout(() => { try { setDescriptiveResults(analyzeDemographics(data, vars)); setActiveView('descriptive_results'); } catch(e){ alert("Error"); } }, 100); };
+  const handleRunDescriptive = (vars: string[]) => { 
+    if (data.length === 0) { sonnerToast.error("No data loaded. Please upload a dataset first."); return; }
+    setTimeout(() => { 
+      try { setDescriptiveResults(analyzeDemographics(data, vars)); setActiveView('descriptive_results'); } 
+      catch(e){ sonnerToast.error("Error running descriptive analysis."); console.error(e); } 
+    }, 100); 
+  };
 
   return (
     <div className="flex h-screen bg-white font-sans text-slate-800">
@@ -2202,6 +2215,11 @@ const PLSSEMApp = () => {
         <button onClick={() => setActiveView('descriptive_setup')} className={`p-3 rounded-xl ${activeView==='descriptive_setup'?'bg-slate-800 text-blue-400':''}`}><TableIcon/></button>
         <button onClick={() => results && setActiveView('results')} disabled={!results} className={`p-3 rounded-xl ${activeView==='results'?'bg-slate-800 text-blue-400':''} disabled:opacity-30`}><Activity/></button>
         <button onClick={() => descriptiveResults && setActiveView('descriptive_results')} disabled={!descriptiveResults} className={`p-3 rounded-xl ${activeView==='descriptive_results'?'bg-slate-800 text-blue-400':''} disabled:opacity-30`}><BarChart2/></button>
+        
+        {/* New button for Gemini API Key Settings */}
+        <button onClick={() => setShowGeminiApiKeySettings(true)} className="mt-auto p-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-amber-400 transition-colors">
+          <Key className="w-5 h-5" />
+        </button>
       </div>
       <div className="flex-1 h-full overflow-hidden relative">
         {activeView === 'data' && <DataManagementPanel currentData={data} onDataLoaded={handleDataLoaded} />}
@@ -2211,6 +2229,9 @@ const PLSSEMApp = () => {
         {activeView === 'results' && <ResultsViewer results={results} constructs={constructs} paths={paths} setConstructs={setConstructs} onBack={() => setActiveView('model')} />}
         {showCalculationTypeModal && <CalculationTypeModal onClose={() => setShowCalculationTypeModal(false)} onSelect={(t) => { setSelectedCalculationType(t); setShowCalculationTypeModal(false); setShowSettingsModal(true); }} />}
         {showSettingsModal && <CalculationSettingsModal type={selectedCalculationType} onClose={() => setShowSettingsModal(false)} onRun={handleRunAnalysis} defaultConfig={bootstrapConfig} />}
+        
+        {/* Gemini API Key Settings Modal */}
+        <GeminiApiKeySettings isOpen={showGeminiApiKeySettings} onClose={() => setShowGeminiApiKeySettings(false)} />
       </div>
     </div>
   );
