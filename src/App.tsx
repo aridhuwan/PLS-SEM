@@ -66,11 +66,18 @@ import { toast as sonnerToast } from "sonner"; // Renamed to avoid conflict with
 import GeminiApiKeySettings from '@/components/GeminiApiKeySettings'; // Import the new component
 
 // --- Firebase Configuration ---
-const firebaseConfig = JSON.parse(__firebase_config); // REPLACE WITH YOUR FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID_FROM_FIREBASE"
+};
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'meetily-ai'; // REPLACE WITH YOUR APP ID
+const appId = 'meetily-ai'; // You can change this to a unique ID for your app
 
 // --- Gemini API Helper ---
 const GEMINI_API_KEY_STORAGE_KEY = "geminiApiKey"; // Define the storage key
@@ -169,7 +176,7 @@ const AudioVisualizer = ({ isRecording }) => {
       const ctx = canvas.getContext('2d');
       const width = canvas.width;
       const height = canvas.height;
-      const bufferLength = analyserRef.current.frequencyBinBinCount;
+      const bufferLength = analyserRef.current.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
       analyserRef.current.getByteTimeDomainData(dataArray);
